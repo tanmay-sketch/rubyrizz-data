@@ -13,4 +13,5 @@ This file is for the project members who contributing to the data extraction pro
 
 5. Follow the rules and key points
 
-- Adopted from Rubyrizz Algo
+-- Adopted from [rubirizz-algo](https://github.com/niharsaketh20/RubiRizz-Algo/tree/main)
+
