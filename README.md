@@ -12,3 +12,6 @@ Data extraction repo for rubyrizz
 - [ ] Error handling
 
 Libraries: PyTorch, Opencv
+
+## Rules to contribute
+Refer to [CONTRIBUTING.md](CONTRIBUTING.md) to make contributions to the repository. 
