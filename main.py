@@ -2,4 +2,4 @@ from ultralytics import YOLO
 
 model = YOLO('yolov8n.yaml')
 
-results = model.train(data="./data/data.yaml", epochs=3)
+results = model.train(data="./data/data.yaml", epochs=10, device='mps')
