@@ -1,6 +1,6 @@
 path: /Users/tanmay/Documents/Coding/Repositories/rubyrizz-data/data
 train: ../train/images
-val: ../train/images
+val: ../valid/images
 test: ../test/images
 
 nc: 6
@@ -9,6 +9,6 @@ names: ['Blue', 'Green', 'Orange', 'Red', 'White', 'Yellow']
 roboflow:
   workspace: main-d3i3y
   project: rubyrizz
-  version: 3
+  version: 4
   license: CC BY 4.0
-  url: https://universe.roboflow.com/main-d3i3y/rubyrizz/dataset/3
+  url: https://universe.roboflow.com/main-d3i3y/rubyrizz/dataset/4
