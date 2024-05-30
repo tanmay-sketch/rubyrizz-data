@@ -2,7 +2,7 @@
 rubyrizz - v4 2024-02-26 9:59pm
 ==============================
 
-This dataset was exported via roboflow.com on February 27, 2024 at 3:01 AM GMT
+This dataset was exported via roboflow.com on May 30, 2024 at 2:38 PM GMT
 
 Roboflow is an end-to-end computer vision platform that helps you
 * collaborate with your team on computer vision projects
@@ -18,7 +18,7 @@ visit https://github.com/roboflow/notebooks
 To find over 100k other datasets and pre-trained models, visit https://universe.roboflow.com
 
 The dataset includes 139 images.
-R-B-G-O-Y-W are annotated in YOLOv8 format.
+R-B-G-O-Y-W are annotated in YOLO v5 PyTorch format.
 
 The following pre-processing was applied to each image:
 * Auto-orientation of pixel data (with EXIF-orientation stripping)

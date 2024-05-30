@@ -1,4 +1,3 @@
-path: /Users/tanmay/Documents/Coding/Repositories/rubyrizz-data/data
 train: ../train/images
 val: ../valid/images
 test: ../test/images
