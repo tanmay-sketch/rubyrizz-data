@@ -3,12 +3,13 @@ import os
 import yaml
 import torch
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 
 # Add the project directory to the PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src import RubiksCubeDataset, YOLOv5Simple, yolo_loss, transform
+from src import RubiksCubeDataset, YOLOv5Moderate, yolo_loss, transform
 
 # Load data.yaml
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -67,13 +68,14 @@ test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False, collate_fn=c
 
 # Initialize model
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-model = YOLOv5Simple(num_classes=num_classes).to(device)
+model = YOLOv5Moderate(num_classes=num_classes).to(device)
 
 # Training setup
 num_epochs = 25
-learning_rate = 0.001
+initial_lr = 0.001
 
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+optimizer = optim.Adam(model.parameters(), lr=initial_lr)
+scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
 def prepare_targets(outputs, boxes, labels, num_classes):
     targets = torch.zeros_like(outputs).to(device)
@@ -100,6 +102,7 @@ for epoch in range(num_epochs):
         optimizer.step()
         running_loss += loss.item()
 
+    scheduler.step()
     print(f"Epoch {epoch+1}, Loss: {running_loss/len(train_loader)}")
 
     model.eval()
