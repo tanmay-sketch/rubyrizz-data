@@ -3,13 +3,14 @@ import os
 import yaml
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
 # Add the project directory to the PYTHONPATH
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src import RubiksCubeDataset, YOLOv5Moderate, yolo_loss, transform
+from wandb_setup import initialize_wandb, log_metrics, finish_wandb
 
 # Load data.yaml
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,8 +75,17 @@ model = YOLOv5Moderate(num_classes=num_classes).to(device)
 num_epochs = 25
 initial_lr = 0.001
 
-optimizer = optim.Adam(model.parameters(), lr=initial_lr)
-scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
+optimizer = optim.Adam(model.parameters(), lr=initial_lr, weight_decay=1e-4)
+scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+
+# Initialize W&B
+config = {
+    "learning_rate": initial_lr,
+    "epochs": num_epochs,
+    "batch_size": train_loader.batch_size,
+    "num_classes": num_classes,
+}
+initialize_wandb("yolo_rubiks_cube", config)
 
 def prepare_targets(outputs, boxes, labels, num_classes):
     targets = torch.zeros_like(outputs).to(device)
@@ -102,8 +112,9 @@ for epoch in range(num_epochs):
         optimizer.step()
         running_loss += loss.item()
 
-    scheduler.step()
-    print(f"Epoch {epoch+1}, Loss: {running_loss/len(train_loader)}")
+    avg_train_loss = running_loss / len(train_loader)
+    print(f"Epoch {epoch+1}, Loss: {avg_train_loss}")
+    log_metrics({"train_loss": avg_train_loss}, epoch)
 
     model.eval()
     val_loss = 0.0
@@ -119,8 +130,12 @@ for epoch in range(num_epochs):
             loss = yolo_loss(outputs, targets, num_classes=num_classes)
             val_loss += loss.item()
 
-    val_loss /= len(val_loader)
-    print(f"Validation Loss: {val_loss}")
+    avg_val_loss = val_loss / len(val_loader)
+    print(f"Validation Loss: {avg_val_loss}")
+    log_metrics({"val_loss": avg_val_loss}, epoch)
+
+    # Step the scheduler
+    scheduler.step(avg_val_loss)
 
 # Save the final model
 torch.save(model.state_dict(), 'final_yolo_rubiks_cube.pth')
@@ -138,5 +153,9 @@ with torch.no_grad():
         loss = yolo_loss(outputs, targets, num_classes=num_classes)
         test_loss += loss.item()
 
-test_loss /= len(test_loader)
-print(f"Test Loss: {test_loss}")
+avg_test_loss = test_loss / len(test_loader)
+print(f"Test Loss: {avg_test_loss}")
+log_metrics({"test_loss": avg_test_loss}, num_epochs)
+
+# Finish W&B run
+finish_wandb()

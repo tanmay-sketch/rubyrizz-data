@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.init as init
 
 class YOLOv5Moderate(nn.Module):
     def __init__(self, num_classes=6):
@@ -18,6 +19,21 @@ class YOLOv5Moderate(nn.Module):
         self.fc1 = nn.Linear(512 * 20 * 20, 1024)
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(1024, self.num_classes * 5)  # (class_score, x, y, w, h)
+
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                init.constant_(m.weight, 1)
+                init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                init.normal_(m.weight, 0, 0.01)
+                init.constant_(m.bias, 0)
 
     def forward(self, x):
         x = nn.ReLU()(self.bn1(self.conv1(x)))
