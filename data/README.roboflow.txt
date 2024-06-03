@@ -1,8 +1,8 @@
 
-rubyrizz - v4 2024-02-26 9:59pm
+rubyrizz - v5 Raw Data CNN
 ==============================
 
-This dataset was exported via roboflow.com on May 30, 2024 at 2:38 PM GMT
+This dataset was exported via roboflow.com on June 3, 2024 at 7:44 AM GMT
 
 Roboflow is an end-to-end computer vision platform that helps you
 * collaborate with your team on computer vision projects

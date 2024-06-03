@@ -39,11 +39,22 @@ class RubiksCubeDataset(Dataset):
         labels = torch.tensor(labels, dtype=torch.long)
 
         if self.transform:
-            image = self.transform(image)
+            image, boxes = self.transform(image, boxes)
 
         return image, boxes, labels
 
-transform = transforms.Compose([
-    transforms.Resize((640, 640)),
-    transforms.ToTensor(),
-])
+def train_transform(image, boxes):
+    transform = transforms.Compose([
+        transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+    ])
+    image = transform(image)
+    return image, boxes
+
+def val_test_transform(image, boxes):
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+    image = transform(image)
+    return image, boxes

@@ -9,13 +9,16 @@ from torchvision import transforms
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from dataset import RubiksCubeDataset, transform
+from dataset import RubiksCubeDataset, train_transform, val_test_transform
 from model import ImprovedCNN
 from loss import yolo_loss
 from wandb_setup import initialize_wandb, log_metrics, finish_wandb
 
 def collate_fn(batch):
     images, boxes, labels = zip(*batch)
+
+    # Resize images to a fixed size (640x640)
+    images = [transforms.functional.resize(image, (640, 640)) for image in images]
 
     # Stack images
     images = torch.stack(images, 0)
@@ -60,19 +63,6 @@ def main():
     print(f"Train images: {train_img_dir}, Train labels: {train_label_dir}")
     print(f"Validation images: {val_img_dir}, Validation labels: {val_label_dir}")
     print(f"Test images: {test_img_dir}, Test labels: {test_label_dir}")
-
-    # Data augmentation
-    train_transform = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-    ])
-
-    val_test_transform = transforms.Compose([
-        transforms.Resize((320, 320)),
-        transforms.ToTensor(),
-    ])
 
     # Create datasets and data loaders
     train_dataset = RubiksCubeDataset(img_dir=train_img_dir, label_dir=train_label_dir, transform=train_transform)

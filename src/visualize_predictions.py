@@ -8,13 +8,13 @@ from model import ImprovedCNN
 # Load the model
 num_classes = 6
 model = ImprovedCNN(num_classes=num_classes)
-model.load_state_dict(torch.load('final_yolo_rubiks_cube.pth'))
+model.load_state_dict(torch.load('best_yolo_rubiks_cube.pth'))
 model.eval()
 
 # Preprocess the input image
 def preprocess_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((320, 320)),
+        transforms.Resize((640, 640)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -22,8 +22,13 @@ def preprocess_image(image_path):
     image = image.unsqueeze(0)  # Add batch dimension
     return image
 
+# Non-Maximum Suppression (NMS) function
+def nms(boxes, scores, iou_threshold):
+    indices = torch.ops.torchvision.nms(boxes, scores, iou_threshold)
+    return indices
+
 # Post-process and visualize the output
-def postprocess_and_visualize(image_path, outputs, threshold=0.5):
+def postprocess_and_visualize(image_path, outputs, threshold=0.5, iou_threshold=0.5):
     image = Image.open(image_path).convert("RGB")
     outputs = outputs.squeeze(0)  # Remove batch dimension
     outputs = outputs.permute(1, 2, 0)  # Change to (H, W, C) format
@@ -31,13 +36,19 @@ def postprocess_and_visualize(image_path, outputs, threshold=0.5):
     ax.imshow(image)
     image_width, image_height = image.size
 
-    num_preds = outputs.size(2) // (num_classes + 4)
-    for i in range(num_preds):
-        class_scores = torch.sigmoid(outputs[:, :, i]).numpy()
-        x_center = outputs[:, :, num_classes + i].numpy()
-        y_center = outputs[:, :, num_classes + i + 1].numpy()
-        width = outputs[:, :, num_classes + i + 2].numpy()
-        height = outputs[:, :, num_classes + i + 3].numpy()
+    # Print raw outputs for debugging
+    print("Raw outputs:", outputs)
+
+    boxes = []
+    scores = []
+    classes = []
+
+    for i in range(num_classes):
+        class_scores = torch.sigmoid(outputs[:, :, i])
+        x_center = outputs[:, :, num_classes + 0]
+        y_center = outputs[:, :, num_classes + 1]
+        width = outputs[:, :, num_classes + 2]
+        height = outputs[:, :, num_classes + 3]
 
         mask = class_scores > threshold
         for j in range(mask.shape[0]):
@@ -51,23 +62,34 @@ def postprocess_and_visualize(image_path, outputs, threshold=0.5):
                     x = x_center_scaled - width_scaled / 2
                     y = y_center_scaled - height_scaled / 2
 
-                    # Ensure x, y, width, height are within image boundaries
-                    x = max(x, 0)
-                    y = max(y, 0)
-                    width_scaled = min(width_scaled, image_width - x)
-                    height_scaled = min(height_scaled, image_height - y)
+                    boxes.append([x, y, x + width_scaled, y + height_scaled])
+                    scores.append(class_scores[j, k].item())
+                    classes.append(i)
 
-                    rect = patches.Rectangle((x, y), width_scaled, height_scaled, linewidth=1, edgecolor='r', facecolor='none')
-                    ax.add_patch(rect)
-                    plt.text(x, y, f"Class {i} ({class_scores[j, k]:.2f})", color='white', backgroundcolor='red', fontsize=12)
+    if len(boxes) > 0:
+        boxes = torch.tensor(boxes)
+        scores = torch.tensor(scores)
+        keep = nms(boxes, scores, iou_threshold)
 
-                    # Debug: Print the coordinates and class score
-                    print(f"Class {i}, Score: {class_scores[j, k]:.2f}, x: {x}, y: {y}, width: {width_scaled}, height: {height_scaled}")
+        for idx in keep:
+            box = boxes[idx]
+            score = scores[idx]
+            class_id = classes[idx]
+
+            x, y, x2, y2 = box
+            width = x2 - x
+            height = y2 - y
+
+            rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
+            plt.text(x, y, f"Class {class_id} ({score:.2f})", color='white', backgroundcolor='red', fontsize=12)
+
+            # Debug: Print the coordinates and class score
+            print(f"Class {class_id}, Score: {score:.2f}, x: {x}, y: {y}, width: {width}, height: {height}")
 
     plt.show()
 
-# Path to the image you want to test
-image_path = 'image.jpg'  # Replace with your image path
+image_path = 'image.jpg'  
 
 # Preprocess the image
 image = preprocess_image(image_path)
