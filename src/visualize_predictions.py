@@ -3,18 +3,18 @@ import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from model import YOLOv5Moderate
+from model import ImprovedCNN
 
 # Load the model
 num_classes = 6
-model = YOLOv5Moderate(num_classes=num_classes)
+model = ImprovedCNN(num_classes=num_classes)
 model.load_state_dict(torch.load('final_yolo_rubiks_cube.pth'))
 model.eval()
 
 # Preprocess the input image
 def preprocess_image(image_path):
     transform = transforms.Compose([
-        transforms.Resize((640, 640)),
+        transforms.Resize((320, 320)),
         transforms.ToTensor(),
     ])
     image = Image.open(image_path).convert("RGB")
@@ -26,44 +26,48 @@ def preprocess_image(image_path):
 def postprocess_and_visualize(image_path, outputs, threshold=0.5):
     image = Image.open(image_path).convert("RGB")
     outputs = outputs.squeeze(0)  # Remove batch dimension
+    outputs = outputs.permute(1, 2, 0)  # Change to (H, W, C) format
     fig, ax = plt.subplots(1)
     ax.imshow(image)
     image_width, image_height = image.size
 
-    for i in range(outputs.size(0)):
-        class_score, x_center, y_center, width, height = outputs[i]
-        class_score = torch.sigmoid(class_score)
-        if class_score > threshold:
-            x_center, y_center, width, height = x_center.item(), y_center.item(), width.item(), height.item()
-            x_center *= image_width
-            y_center *= image_height
-            width *= image_width
-            height *= image_height
+    num_preds = outputs.size(2) // (num_classes + 4)
+    for i in range(num_preds):
+        class_scores = torch.sigmoid(outputs[:, :, i]).numpy()
+        x_center = outputs[:, :, num_classes + i].numpy()
+        y_center = outputs[:, :, num_classes + i + 1].numpy()
+        width = outputs[:, :, num_classes + i + 2].numpy()
+        height = outputs[:, :, num_classes + i + 3].numpy()
 
-            # Ensure width and height are positive
-            width = max(width, 0)
-            height = max(height, 0)
+        mask = class_scores > threshold
+        for j in range(mask.shape[0]):
+            for k in range(mask.shape[1]):
+                if mask[j, k]:
+                    x_center_scaled = x_center[j, k] * image_width
+                    y_center_scaled = y_center[j, k] * image_height
+                    width_scaled = width[j, k] * image_width
+                    height_scaled = height[j, k] * image_height
 
-            x = x_center - width / 2
-            y = y_center - height / 2
+                    x = x_center_scaled - width_scaled / 2
+                    y = y_center_scaled - height_scaled / 2
 
-            # Ensure x, y, width, height are within image boundaries
-            x = max(x, 0)
-            y = max(y, 0)
-            width = min(width, image_width - x)
-            height = min(height, image_height - y)
+                    # Ensure x, y, width, height are within image boundaries
+                    x = max(x, 0)
+                    y = max(y, 0)
+                    width_scaled = min(width_scaled, image_width - x)
+                    height_scaled = min(height_scaled, image_height - y)
 
-            rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor='r', facecolor='none')
-            ax.add_patch(rect)
-            plt.text(x, y, f"Class {i} ({class_score:.2f})", color='white', backgroundcolor='red', fontsize=12)
+                    rect = patches.Rectangle((x, y), width_scaled, height_scaled, linewidth=1, edgecolor='r', facecolor='none')
+                    ax.add_patch(rect)
+                    plt.text(x, y, f"Class {i} ({class_scores[j, k]:.2f})", color='white', backgroundcolor='red', fontsize=12)
 
-            # Debug: Print the coordinates and class score
-            print(f"Class {i}, Score: {class_score:.2f}, x: {x}, y: {y}, width: {width}, height: {height}")
+                    # Debug: Print the coordinates and class score
+                    print(f"Class {i}, Score: {class_scores[j, k]:.2f}, x: {x}, y: {y}, width: {width_scaled}, height: {height_scaled}")
 
     plt.show()
 
 # Path to the image you want to test
-image_path = 'image.png'  # Replace with your image path
+image_path = 'image.jpg'  # Replace with your image path
 
 # Preprocess the image
 image = preprocess_image(image_path)

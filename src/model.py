@@ -2,23 +2,47 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 
-class YOLOv5Moderate(nn.Module):
+class ImprovedCNN(nn.Module):
     def __init__(self, num_classes=6):
-        super(YOLOv5Moderate, self).__init__()
+        super(ImprovedCNN, self).__init__()
         self.num_classes = num_classes
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(64)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
-        self.bn3 = nn.BatchNorm2d(128)
-        self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
-        self.bn4 = nn.BatchNorm2d(256)
-        self.conv5 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
-        self.bn5 = nn.BatchNorm2d(512)
-        self.fc1 = nn.Linear(512 * 20 * 20, 1024)
-        self.dropout = nn.Dropout(0.5)
-        self.fc2 = nn.Linear(1024, self.num_classes * 5)  # (class_score, x, y, w, h)
+        self.encoder1 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        )
+        self.encoder2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        )
+        self.encoder3 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        )
+        self.encoder4 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        )
+        self.encoder5 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        )
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc1 = nn.Sequential(
+            nn.Linear(512, 1024),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.5)
+        )
+        self.fc2 = nn.Linear(1024, (num_classes + 4) * 10 * 10)
 
         self._initialize_weights()
 
@@ -36,18 +60,13 @@ class YOLOv5Moderate(nn.Module):
                 init.constant_(m.bias, 0)
 
     def forward(self, x):
-        x = nn.ReLU()(self.bn1(self.conv1(x)))
-        x = nn.MaxPool2d(2)(x)
-        x = nn.ReLU()(self.bn2(self.conv2(x)))
-        x = nn.MaxPool2d(2)(x)
-        x = nn.ReLU()(self.bn3(self.conv3(x)))
-        x = nn.MaxPool2d(2)(x)
-        x = nn.ReLU()(self.bn4(self.conv4(x)))
-        x = nn.MaxPool2d(2)(x)
-        x = nn.ReLU()(self.bn5(self.conv5(x)))
-        x = nn.MaxPool2d(2)(x)
-        x = x.view(-1, 512 * 20 * 20)
-        x = nn.ReLU()(self.dropout(self.fc1(x)))
+        x = self.encoder1(x)
+        x = self.encoder2(x)
+        x = self.encoder3(x)
+        x = self.encoder4(x)
+        x = self.encoder5(x)
+        x = self.global_avg_pool(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc1(x)
         x = self.fc2(x)
-        x = x.view(-1, self.num_classes, 5)
-        return x
+        return x.view(x.size(0), self.num_classes + 4, 10, 10)
